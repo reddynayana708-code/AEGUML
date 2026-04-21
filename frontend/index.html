@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Essay Grader</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 20px; 
+            line-height: 1.6;
+        }
+        .container { 
+            max-width: 800px; 
+            margin: 0 auto; 
+            padding: 20px;
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+        }
+        textarea { 
+            width: 100%; 
+            height: 200px; 
+            margin: 10px 0; 
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: inherit;
+            font-size: 16px;
+        }
+        button { 
+            padding: 10px 20px; 
+            background: #3498db; 
+            color: white; 
+            border: none; 
+            border-radius: 4px;
+            cursor: pointer; 
+            font-size: 16px;
+            display: block;
+            margin: 20px auto;
+        }
+        button:hover { 
+            background: #2980b9; 
+        }
+        .feedback-section { 
+            margin: 20px 0; 
+            padding: 15px; 
+            border: 1px solid #e0e0e0; 
+            border-radius: 5px; 
+            background-color: #f9f9f9;
+        }
+        .score { 
+            font-size: 24px; 
+            font-weight: bold; 
+            color: #2ecc71;
+            margin-left: 10px;
+        }
+        .suggestion { 
+            margin: 10px 0; 
+            padding: 10px; 
+            background: #fff; 
+            border-left: 4px solid #3498db;
+        }
+        .error {
+            color: #e74c3c;
+            background-color: #fde8e8;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .success {
+            color: #27ae60;
+            background-color: #e8f8f0;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #7f8c8d;
+        }
+        h2, h3 {
+            color: #2c3e50;
+            margin-top: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Essay Grader</h1>
+        <form id="gradeForm">
+            <textarea id="essay" placeholder="Paste your essay here..."></textarea>
+            <button type="submit">Grade Essay</button>
+        </form>
+        
+        <div id="result" style="display: none;">
+            <div class="feedback-section">
+                <h2>Overall Score: <span id="score" class="score">N/A</span>/10</h2>
+            </div>
+            
+            <div class="feedback-section">
+                <h3>Feedback</h3>
+                <div id="feedback"></div>
+            </div>
+            
+            <div class="feedback-section">
+                <h3>Readability Metrics</h3>
+                <div id="readability"></div>
+            </div>
+            
+            <div class="feedback-section">
+                <h3>Sentiment Analysis</h3>
+                <div id="sentiment"></div>
+            </div>
+            
+            <div class="feedback-section">
+                <h3>Grammar & Style</h3>
+                <div id="grammar"></div>
+            </div>
+            
+            <div class="feedback-section">
+                <h3>Plagiarism Check</h3>
+                <div id="plagiarism"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.getElementById('gradeForm');
+            const resultDiv = document.getElementById('result');
+            const scoreSpan = document.getElementById('score');
+            const feedbackDiv = document.getElementById('feedback');
+            const readabilityDiv = document.getElementById('readability');
+            const sentimentDiv = document.getElementById('sentiment');
+            const grammarDiv = document.getElementById('grammar');
+            const plagiarismDiv = document.getElementById('plagiarism');
+
+            form.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                const essay = document.getElementById('essay').value.trim();
+                if (!essay) {
+                    showError('Please enter an essay to grade.');
+                    return;
+                }
+
+                // Show loading state
+                resultDiv.style.display = 'block';
+                resultDiv.innerHTML = '<div class="loading">Analyzing your essay...</div>';
+
+                try {
+                    const response = await fetch('http://localhost:8000/grade', {
+                        method: 'POST',
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json'
+                        },
+                        body: JSON.stringify({ essay })
+                    });
+
+                    if (!response.ok) {
+                        const error = await response.json().catch(() => ({}));
+                        throw new Error(error.message || `HTTP error! status: ${response.status}`);
+                    }
+
+                    const data = await response.json();
+                    displayResults(data);
+                    
+                } catch (error) {
+                    console.error('Error:', error);
+                    showError(`Error: ${error.message || 'Failed to process your request. Please try again.'}`);
+                }
+            });
+
+            function displayResults(data) {
+                // Clear any previous results
+                resultDiv.innerHTML = '';
+
+                // Display score
+                const scoreSection = document.createElement('div');
+                scoreSection.className = 'feedback-section success';
+                scoreSection.innerHTML = `<h2>Overall Score: <span class="score">${data.predicted_score || 'N/A'}</span>/10</h2>`;
+                resultDiv.appendChild(scoreSection);
+
+                // Display feedback
+                if (data.feedback) {
+                    const feedbackSection = createSection('Feedback', data.feedback);
+                    resultDiv.appendChild(feedbackSection);
+                }
+
+                // Display readability metrics
+                if (data.readability) {
+                    const readabilitySection = createSection('Readability Metrics', data.readability);
+                    resultDiv.appendChild(readabilitySection);
+                }
+
+                // Display sentiment analysis
+                if (data.sentiment) {
+                    const sentimentSection = createSection('Sentiment Analysis', data.sentiment);
+                    resultDiv.appendChild(sentimentSection);
+                }
+
+                // Display grammar feedback
+                if (data.grammar) {
+                    const grammarSection = createSection('Grammar & Style', data.grammar);
+                    resultDiv.appendChild(grammarSection);
+                }
+
+                // Display plagiarism check
+                if (data.plagiarism) {
+                    const plagiarismSection = document.createElement('div');
+                    plagiarismSection.className = 'feedback-section';
+                    
+                    let html = '<h3>Plagiarism Check</h3>';
+                    if (data.plagiarism.similarity !== undefined) {
+                        const similarity = parseFloat(data.plagiarism.similarity);
+                        const similarityClass = similarity > 30 ? 'error' : 'success';
+                        html += `<div class="${similarityClass}">Similarity: ${similarity}% ${
+                            similarity > 30 ? '(High similarity detected)' : '(No significant matches found)'
+                        }</div>`;
+                        
+                        if (data.plagiarism.top_match_preview) {
+                            html += `<div class="suggestion">
+                                <strong>Top match preview:</strong> ${data.plagiarism.top_match_preview}...
+                            </div>`;
+                        }
+                    }
+                    
+                    plagiarismSection.innerHTML = html;
+                    resultDiv.appendChild(plagiarismSection);
+                }
+            }
+
+            function createSection(title, content) {
+                const section = document.createElement('div');
+                section.className = 'feedback-section';
+                
+                let html = `<h3>${title}</h3>`;
+                
+                if (Array.isArray(content)) {
+                    html += content.map(item => `<div class="suggestion">${item}</div>`).join('');
+                } else if (typeof content === 'object' && content !== null) {
+                    html += '<div class="suggestion">' + 
+                        Object.entries(content)
+                            .map(([key, value]) => `<div><strong>${key}:</strong> ${value}</div>`)
+                            .join('') +
+                        '</div>';
+                } else {
+                    html += `<div class="suggestion">${content}</div>`;
+                }
+                
+                section.innerHTML = html;
+                return section;
+            }
+
+            function showError(message) {
+                resultDiv.style.display = 'block';
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        <p>${message}</p>
+                        <p>Make sure the backend server is running at http://localhost:8000</p>
+                        <p>Check the browser's console (F12) for more details.</p>
+                    </div>`;
+            }
+        });
+    </script>
+</body>
+</html>

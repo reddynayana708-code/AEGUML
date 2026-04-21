@@ -1,0 +1,40 @@
+{
+  "version": "0.2.0",
+  "compounds": [
+    {
+      "name": "Run: API + UI",
+      "configurations": [
+        "Flask API (backend)",
+        "Streamlit UI (frontend)"
+      ],
+      "stopAll": true,
+      "preLaunchTask": "Train model"
+    }
+  ],
+  "configurations": [
+    {
+      "name": "Flask API (backend)",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}\\backend\\app.py",
+      "console": "integratedTerminal",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}"
+      }
+    },
+    {
+      "name": "Streamlit UI (frontend)",
+      "type": "python",
+      "request": "launch",
+      "module": "streamlit",
+      "args": [
+        "run",
+        "${workspaceFolder}\\frontend\\app.py"
+      ],
+      "console": "integratedTerminal",
+      "env": {
+        "AEG_API_URL": "http://localhost:8000/grade"
+      }
+    }
+  ]
+}
